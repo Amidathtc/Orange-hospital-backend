@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MEMBER
+  RECEPTIONIST
+  ADMIN
+}
+
+enum FundType {
+  HEALTH
+  GENERAL
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum TransactionSource {
+  PAYSTACK
+  WALK_IN
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum DrawRequestStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model User {
+  id            String   @id @default(uuid())
+  fullName      String
+  phone         String   @unique
+  email         String?  @unique
+  emailVerifiedAt DateTime?
+  passwordHash  String
+  role          Role     @default(MEMBER)
+  // Set only when a beneficiary claim against this member is approved.
+  // A non-null value here should block further logins/contributions —
+  // there is no legitimate reason for activity on the account after this.
+  deceasedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  funds         Fund[]
+  nextOfKin     NextOfKin?
+  drawRequests  DrawRequest[]        @relation("MemberDrawRequests")
+  reviewedDraws DrawRequest[]        @relation("AdminReviewedDraws")
+  loggedTxns    Transaction[]        @relation("StaffLoggedTransactions")
+  claimsAgainst BeneficiaryClaim[]   @relation("ClaimsAgainstMember")
+  reviewedClaims BeneficiaryClaim[]  @relation("AdminReviewedClaims")
+  authTokens    AuthToken[]
+
+  @@index([role])
+}
+
+// Backs both email verification and password reset — same shape, different
+// purpose. Only the HASH of the raw token is ever stored; the raw token only
+// ever exists inside the email itself, so a database leak alone can never be
+// used to verify an email or reset a password.
+model AuthToken {
+  id        String        @id @default(uuid())
+  user      User          @relation(fields: [userId], references: [id])
+  userId    String
+  type      AuthTokenType
+  tokenHash String        @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime      @default(now())
+
+  @@index([userId, type])
+}
+
+model Fund {
+  id         String    @id @default(uuid())
+  user       User      @relation(fields: [userId], references: [id])
+  userId     String
+  type       FundType
+  balance    Int       @default(0) // stored in kobo to avoid float issues
+  frequency  Frequency @default(DAILY)
+  amount     Int       // contribution amount per cycle, in kobo
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  transactions Transaction[]
+
+  @@unique([userId, type]) // one Health fund + one General fund per member
+  @@index([userId])
+}
+
+model Transaction {
+  id            String            @id @default(uuid())
+  fund          Fund              @relation(fields: [fundId], references: [id])
+  fundId        String
+  amount        Int               // in kobo
+  source        TransactionSource
+  status        TransactionStatus @default(PENDING)
+  paystackRef   String?           @unique
+  loggedBy      User?             @relation("StaffLoggedTransactions", fields: [loggedById], references: [id])
+  loggedById    String?
+  createdAt     DateTime          @default(now())
+
+  @@index([fundId])
+  @@index([status])
+}
+
+model NextOfKin {
+  id           String   @id @default(uuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String   @unique
+  fullName     String
+  relationship String
+  phone        String
+  witnessedBy  String?  // reception staff name, per your in-person trust step
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  history      NextOfKinHistory[]
+}
+
+// Every change to a member's next-of-kin is snapshotted here BEFORE the
+// update happens — this is what lets an admin see "this was changed 2 days
+// before the claim" instead of silently trusting whatever's current.
+model NextOfKinHistory {
+  id            String     @id @default(uuid())
+  nextOfKin     NextOfKin  @relation(fields: [nextOfKinId], references: [id])
+  nextOfKinId   String
+  previousName  String?
+  previousPhone String?
+  previousRel   String?
+  changedByUserId String?  // null if this was the very first record ever created
+  changedByRole String     // "SELF" (the member themselves) or "RECEPTIONIST" — never trust this alone, cross-check who was logged in
+  changedAt     DateTime   @default(now())
+
+  @@index([nextOfKinId])
+}
+
+model DrawRequest {
+  id           String             @id @default(uuid())
+  member       User               @relation("MemberDrawRequests", fields: [memberId], references: [id])
+  memberId     String
+  fundType     FundType           @default(HEALTH)
+  amount       Int                // in kobo
+  reason       String
+  status       DrawRequestStatus  @default(PENDING)
+  reviewedBy   User?              @relation("AdminReviewedDraws", fields: [reviewedById], references: [id])
+  reviewedById String?
+  createdAt    DateTime           @default(now())
+  reviewedAt   DateTime?
+
+  @@index([status])
+  @@index([memberId])
+}
+
+// A next-of-kin (or whoever presents themselves as one) claiming a deceased
+// member's General Ajo balance. This is ALWAYS human-reviewed — next-of-kin
+// on file is contact information, not an automatic payout instruction.
+// Real proof (a death certificate, family confirmation the hospital trusts)
+// happens outside this system; this just records the decision and the amount.
+model BeneficiaryClaim {
+  id             String      @id @default(uuid())
+  deceasedMember User        @relation("ClaimsAgainstMember", fields: [deceasedMemberId], references: [id])
+  deceasedMemberId String
+  claimantName   String
+  claimantPhone  String
+  claimantRelationship String
+  amount         Int         // in kobo, from the General Ajo balance
+  status         ClaimStatus @default(PENDING)
+  notes          String?     // admin's own notes — e.g. what proof was shown
+  reviewedBy     User?       @relation("AdminReviewedClaims", fields: [reviewedById], references: [id])
+  reviewedById   String?
+  createdAt      DateTime    @default(now())
+  reviewedAt     DateTime?
+
+  @@index([status])
+  @@index([deceasedMemberId])
+}
