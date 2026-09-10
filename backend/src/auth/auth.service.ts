@@ -120,7 +120,7 @@ export class AuthService {
     phone: string;
     email?: string;
     password: string;
-    role: Role.RECEPTIONIST | Role.ADMIN;
+    role: Role;
   }) {
     const existing = await this.prisma.user.findUnique({
       where: { phone: dto.phone },
@@ -184,7 +184,7 @@ export class AuthService {
 
     // Always return the same response whether or not the email exists —
     // otherwise this endpoint becomes a way to check which emails are registered.
-    if (user) {
+    if (user && user.email) {
       await this.sendPasswordResetEmail(user.id, user.email, user.fullName).catch(() => undefined);
     }
 

@@ -19,5 +19,5 @@ export class CreateStaffDto {
   password: string;
 
   @IsEnum(Role, { message: 'role must be RECEPTIONIST or ADMIN' })
-  role: Role.RECEPTIONIST | Role.ADMIN;
+  role: Role;
 }

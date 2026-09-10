@@ -10,6 +10,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { DrawRequestsModule } from './draw-requests/draw-requests.module';
 import { NextOfKinModule } from './next-of-kin/next-of-kin.module';
 import { BeneficiaryClaimsModule } from './beneficiary-claims/beneficiary-claims.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { BeneficiaryClaimsModule } from './beneficiary-claims/beneficiary-claims
     NextOfKinModule,
     BeneficiaryClaimsModule,
   ],
+  controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
