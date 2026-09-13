@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength, Matches } from 'class-validator';
 import { Role } from '@prisma/client';
 
 export class SignupDto {
@@ -7,7 +7,7 @@ export class SignupDto {
   fullName: string;
 
   @IsString()
-  @MinLength(10)
+  @Matches(/^0\d{10}$/, { message: 'Phone number must be an 11-digit number starting with 0 (e.g., 08012345678)' })
   phone: string;
 
   @IsOptional()
@@ -24,3 +24,4 @@ export class SignupDto {
   @IsEnum(Role)
   role?: Role;
 }
+
