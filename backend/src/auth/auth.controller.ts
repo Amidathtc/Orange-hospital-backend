@@ -1,4 +1,4 @@
-import { Body, Controller, Post, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { AuthService } from './auth.service';
@@ -18,11 +18,18 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  getMe(@CurrentUser() user: { id: string }) {
+    return this.authService.getMe(user.id);
+  }
+
   // Tighter than the app-wide default — signup doesn't need to be attempted
   // more than a handful of times per minute by a real person.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('signup')
   signup(@Body() dto: SignupDto) {
+
     return this.authService.signup(dto);
   }
 

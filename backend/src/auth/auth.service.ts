@@ -289,6 +289,26 @@ export class AuthService {
     return crypto.createHash('sha256').update(rawToken).digest('hex');
   }
 
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found.');
+    }
+
+    return {
+      id: user.id,
+      fullName: user.fullName,
+      phone: user.phone,
+      email: user.email,
+      role: user.role,
+      emailVerified: Boolean(user.emailVerifiedAt),
+      createdAt: user.createdAt,
+    };
+  }
+
   private buildAuthResponse(user: {
     id: string;
     fullName: string;
@@ -317,3 +337,4 @@ export class AuthService {
     };
   }
 }
+
