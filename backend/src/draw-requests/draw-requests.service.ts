@@ -13,9 +13,36 @@ export class DrawRequestsService {
   constructor(private prisma: PrismaService) {}
 
   // Works against whichever fund the member picked — Health (for treatment)
-  // or General (their own savings). Previously hardcoded to Health only,
-  // which meant General Ajo money could never leave a living member's account.
+  // or General (their own savings).
   async create(memberId: string, dto: CreateDrawRequestDto) {
+    const fund = await this.prisma.fund.findUnique({
+      where: { userId_type: { userId: memberId, type: dto.fundType } },
+    });
+
+    if (!fund) {
+      throw new BadRequestException(`No ${dto.fundType} fund found for this user.`);
+    }
+
+    if (fund.balance < dto.amount) {
+      throw new BadRequestException(
+        `Insufficient balance. Your ${dto.fundType} fund balance is ₦${(fund.balance / 100).toLocaleString()}, but you requested ₦${(dto.amount / 100).toLocaleString()}.`,
+      );
+    }
+
+    const pendingRequests = await this.prisma.drawRequest.aggregate({
+      where: { memberId, fundType: dto.fundType, status: DrawRequestStatus.PENDING },
+      _sum: { amount: true },
+    });
+
+    const pendingTotal = pendingRequests._sum.amount ?? 0;
+    const availableBalance = fund.balance - pendingTotal;
+
+    if (availableBalance < dto.amount) {
+      throw new BadRequestException(
+        `Insufficient available balance. You already have pending draw requests totaling ₦${(pendingTotal / 100).toLocaleString()}.`,
+      );
+    }
+
     return this.prisma.drawRequest.create({
       data: {
         memberId,
@@ -26,6 +53,7 @@ export class DrawRequestsService {
       },
     });
   }
+
 
   async getMine(memberId: string) {
     return this.prisma.drawRequest.findMany({
