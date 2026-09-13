@@ -25,7 +25,7 @@ export class DrawRequestsService {
 
     if (fund.balance < dto.amount) {
       throw new BadRequestException(
-        `Insufficient balance. Your ${dto.fundType} fund balance is ₦${(fund.balance / 100).toLocaleString()}, but you requested ₦${(dto.amount / 100).toLocaleString()}.`,
+        `Insufficient balance. Please fund your ${dto.fundType} Ajo account to proceed. Current balance: ₦${(fund.balance / 100).toLocaleString()}, requested: ₦${(dto.amount / 100).toLocaleString()}.`,
       );
     }
 
@@ -39,9 +39,10 @@ export class DrawRequestsService {
 
     if (availableBalance < dto.amount) {
       throw new BadRequestException(
-        `Insufficient available balance. You already have pending draw requests totaling ₦${(pendingTotal / 100).toLocaleString()}.`,
+        `Insufficient available balance. You already have pending draw requests totaling ₦${(pendingTotal / 100).toLocaleString()}. Please wait for review or fund your account.`,
       );
     }
+
 
     return this.prisma.drawRequest.create({
       data: {
