@@ -80,11 +80,25 @@ export class AuthService {
     // Best-effort, and only if they gave an email — a member without one
     // simply has no verification step, not a broken signup.
     if (user.email) {
-      await this.sendVerificationEmail(user.id, user.email, user.fullName).catch(() => undefined);
+      await this.sendVerificationEmail(user.id, user.email, user.fullName);
     }
 
     return this.buildAuthResponse(user);
   }
+
+  async resendVerificationEmail(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user || !user.email) {
+      throw new BadRequestException('No account found with this email.');
+    }
+    if (user.emailVerifiedAt) {
+      throw new BadRequestException('This email address has already been verified.');
+    }
+
+    await this.sendVerificationEmail(user.id, user.email, user.fullName);
+    return { message: 'Verification email sent successfully.' };
+  }
+
 
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({

@@ -56,6 +56,14 @@ export class AuthController {
     return this.authService.verifyEmail(dto.token);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  resendVerification(@Body() dto: ForgotPasswordDto) {
+    return this.authService.resendVerificationEmail(dto.email);
+  }
+
+
   // Same throttle reasoning as login — this is the endpoint that sends an
   // email, so it's also the one someone could try to spam.
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
