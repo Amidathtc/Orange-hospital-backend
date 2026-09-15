@@ -354,27 +354,6 @@ export class AuthService {
     return this.deleteUser(user.id);
   }
 
-  async cleanupSpecificUsers(targets: string[]) {
-    const results: string[] = [];
-    for (const target of targets) {
-      const users = await this.prisma.user.findMany({
-        where: {
-          OR: [
-            { email: { equals: target, mode: 'insensitive' } },
-            { email: { contains: target, mode: 'insensitive' } },
-            { fullName: { contains: target, mode: 'insensitive' } },
-            { phone: { contains: target } },
-          ],
-        },
-      });
-
-      for (const user of users) {
-        await this.deleteUser(user.id);
-        results.push(`${user.fullName} | Email: ${user.email} | Phone: ${user.phone}`);
-      }
-    }
-    return { deletedCount: results.length, deleted: results };
-  }
 
 
   private buildAuthResponse(user: {

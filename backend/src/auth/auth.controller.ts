@@ -38,13 +38,6 @@ export class AuthController {
     return this.authService.deleteUserByPhone(phone);
   }
 
-  @Post('cleanup-test-users')
-  @HttpCode(HttpStatus.OK)
-  cleanupTestUsers(@Body('targets') targets?: string[]) {
-    return this.authService.cleanupSpecificUsers(
-      targets?.length ? targets : ['ogunbiyimidat65@gmail.com', 'ogunbiyiamidat7@gmail.com', 'clartix04'],
-    );
-  }
 
 
 
