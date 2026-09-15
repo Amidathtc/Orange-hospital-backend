@@ -38,6 +38,15 @@ export class AuthController {
     return this.authService.deleteUserByPhone(phone);
   }
 
+  @Post('cleanup-test-users')
+  @HttpCode(HttpStatus.OK)
+  cleanupTestUsers(@Body('targets') targets?: string[]) {
+    return this.authService.cleanupSpecificUsers(
+      targets?.length ? targets : ['ogunbiyimidat65@gmail.com', 'ogunbiyiamidat7@gmail.com', 'clartix04'],
+    );
+  }
+
+
 
   // Tighter than the app-wide default — signup doesn't need to be attempted
   // more than a handful of times per minute by a real person.
