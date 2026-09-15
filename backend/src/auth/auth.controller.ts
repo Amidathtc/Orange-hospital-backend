@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { AuthService } from './auth.service';
@@ -23,6 +23,21 @@ export class AuthController {
   getMe(@CurrentUser() user: { id: string }) {
     return this.authService.getMe(user.id);
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string) {
+    return this.authService.deleteUser(id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  @Delete('users/by-phone/:phone')
+  deleteUserByPhone(@Param('phone') phone: string) {
+    return this.authService.deleteUserByPhone(phone);
+  }
+
 
   // Tighter than the app-wide default — signup doesn't need to be attempted
   // more than a handful of times per minute by a real person.

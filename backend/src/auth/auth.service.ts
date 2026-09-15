@@ -3,7 +3,9 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
+
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
@@ -324,6 +326,34 @@ export class AuthService {
     };
   }
 
+  async deleteUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.authToken.deleteMany({ where: { userId } }),
+      this.prisma.transaction.deleteMany({ where: { fund: { userId } } }),
+      this.prisma.fund.deleteMany({ where: { userId } }),
+      this.prisma.drawRequest.deleteMany({ where: { memberId: userId } }),
+      this.prisma.beneficiaryClaim.deleteMany({ where: { deceasedMemberId: userId } }),
+      this.prisma.nextOfKinHistory.deleteMany({ where: { nextOfKin: { userId } } }),
+      this.prisma.nextOfKin.deleteMany({ where: { userId } }),
+      this.prisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    return { message: `User ${user.fullName} (${user.phone}) deleted successfully.` };
+  }
+
+  async deleteUserByPhone(phone: string) {
+    const user = await this.prisma.user.findUnique({ where: { phone } });
+    if (!user) {
+      throw new NotFoundException(`User with phone ${phone} not found.`);
+    }
+    return this.deleteUser(user.id);
+  }
+
   private buildAuthResponse(user: {
     id: string;
     fullName: string;
@@ -332,6 +362,7 @@ export class AuthService {
     role: Role;
     emailVerifiedAt?: Date | null;
   }) {
+
     // Staff tokens expire faster than member tokens — if a receptionist is
     // let go or a device is compromised, the window of exposure is a day,
     // not a full week. Members keep the longer window since re-logging-in
