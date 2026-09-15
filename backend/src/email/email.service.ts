@@ -1,25 +1,52 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly apiKey: string;
-  private readonly from: string;
+  private transporter: nodemailer.Transporter | null = null;
+  private readonly apiKey: string = '';
+  private readonly from: string = '';
 
   constructor(private config: ConfigService) {
-    this.apiKey = this.config.get<string>('RESEND_API_KEY') ?? '';
-    // Resend's shared test address works with zero setup, before you own a
-    // verified domain — swap this for "Orange Health Ajo <no-reply@yourdomain.com>"
-    // once the real domain is live.
-    this.from = this.config.get<string>('EMAIL_FROM') ?? 'onboarding@resend.dev';
+    const smtpUser = this.config.get<string>('SMTP_USER');
+    const smtpPass = this.config.get<string>('SMTP_PASS');
+
+    if (smtpUser && smtpPass) {
+      this.transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+      this.from = this.config.get<string>('EMAIL_FROM') ?? `Orange Health Ajo <${smtpUser}>`;
+    } else {
+      this.apiKey = this.config.get<string>('RESEND_API_KEY') ?? '';
+      this.from = this.config.get<string>('EMAIL_FROM') ?? 'onboarding@resend.dev';
+    }
   }
 
   private async send(to: string, subject: string, html: string) {
+    if (this.transporter) {
+      try {
+        await this.transporter.sendMail({
+          from: this.from,
+          to,
+          subject,
+          html,
+        });
+        return;
+      } catch (err: any) {
+        this.logger.error(`SMTP Send error to ${to}: ${err.message}`);
+        throw new BadRequestException(`Failed to send email via SMTP: ${err.message}`);
+      }
+    }
+
     if (!this.apiKey) {
-      this.logger.error(`Cannot send email to ${to}: RESEND_API_KEY is not configured in environment variables.`);
-      throw new BadRequestException('Email service is not configured. Missing RESEND_API_KEY in backend environment.');
+      this.logger.error(`Cannot send email to ${to}: Neither SMTP_USER/SMTP_PASS nor RESEND_API_KEY is configured.`);
+      throw new BadRequestException('Email service is not configured. Add SMTP_USER/SMTP_PASS in backend environment.');
     }
 
     const res = await fetch('https://api.resend.com/emails', {
@@ -37,7 +64,6 @@ export class EmailService {
       throw new BadRequestException(`Failed to send email (${res.status}): ${body}`);
     }
   }
-
 
   async sendVerificationEmail(to: string, fullName: string, link: string) {
     await this.send(
@@ -61,3 +87,4 @@ export class EmailService {
     );
   }
 }
+
