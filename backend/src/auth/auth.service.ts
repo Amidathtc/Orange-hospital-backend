@@ -185,8 +185,9 @@ export class AuthService {
     // Always return the same response whether or not the email exists —
     // otherwise this endpoint becomes a way to check which emails are registered.
     if (user && user.email) {
-      await this.sendPasswordResetEmail(user.id, user.email, user.fullName).catch(() => undefined);
+      await this.sendPasswordResetEmail(user.id, user.email, user.fullName);
     }
+
 
     return { message: 'If that email is registered, a reset link has been sent.' };
   }

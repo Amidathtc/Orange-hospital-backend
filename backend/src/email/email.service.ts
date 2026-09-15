@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+
 
 @Injectable()
 export class EmailService {
@@ -16,6 +17,11 @@ export class EmailService {
   }
 
   private async send(to: string, subject: string, html: string) {
+    if (!this.apiKey) {
+      this.logger.error(`Cannot send email to ${to}: RESEND_API_KEY is not configured in environment variables.`);
+      throw new BadRequestException('Email service is not configured. Missing RESEND_API_KEY in backend environment.');
+    }
+
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -27,12 +33,11 @@ export class EmailService {
 
     if (!res.ok) {
       const body = await res.text();
-      // Deliberately doesn't throw — a flaky email provider shouldn't be able
-      // to break signup or password reset outright. It's logged so it's
-      // visible, not silently swallowed.
       this.logger.error(`Failed to send email to ${to}: ${res.status} ${body}`);
+      throw new BadRequestException(`Failed to send email (${res.status}): ${body}`);
     }
   }
+
 
   async sendVerificationEmail(to: string, fullName: string, link: string) {
     await this.send(
