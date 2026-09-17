@@ -15,7 +15,9 @@ export class EmailService {
 
     if (smtpUser && smtpPass) {
       this.transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
         auth: {
           user: smtpUser,
           pass: smtpPass,
@@ -23,6 +25,7 @@ export class EmailService {
       });
       this.from = this.config.get<string>('EMAIL_FROM') ?? `Orange Health Ajo <${smtpUser}>`;
     } else {
+
       this.apiKey = this.config.get<string>('RESEND_API_KEY') ?? '';
       this.from = this.config.get<string>('EMAIL_FROM') ?? 'onboarding@resend.dev';
     }
