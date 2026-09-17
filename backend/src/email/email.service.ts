@@ -1,6 +1,10 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import * as dns from 'dns';
+
+// Render containers do not have outbound IPv6. Force Node to prefer IPv4.
+dns.setDefaultResultOrder('ipv4first');
 
 @Injectable()
 export class EmailService {
@@ -23,6 +27,7 @@ export class EmailService {
           pass: smtpPass,
         },
       });
+
       this.from = this.config.get<string>('EMAIL_FROM') ?? `Orange Health Ajo <${smtpUser}>`;
     } else {
 
