@@ -38,6 +38,13 @@ export class AuthController {
     return this.authService.deleteUserByPhone(phone);
   }
 
+  @Post('seed-test-admin')
+  @HttpCode(HttpStatus.OK)
+  seedTestAdmin() {
+    return this.authService.seedTestAdmin();
+  }
+
+
 
 
 

@@ -354,6 +354,26 @@ export class AuthService {
     return this.deleteUser(user.id);
   }
 
+  async seedTestAdmin() {
+    const phone = '08000000000';
+    const existing = await this.prisma.user.findUnique({ where: { phone } });
+    if (existing) {
+      return this.buildAuthResponse(existing);
+    }
+    const passwordHash = await bcrypt.hash('AdminPassword123!', 12);
+    const admin = await this.prisma.user.create({
+      data: {
+        fullName: 'Dr. Megbuwawon (Admin)',
+        phone,
+        email: 'admin@orangehealth.com',
+        passwordHash,
+        role: Role.ADMIN,
+      },
+    });
+    return this.buildAuthResponse(admin);
+  }
+
+
 
 
   private buildAuthResponse(user: {
