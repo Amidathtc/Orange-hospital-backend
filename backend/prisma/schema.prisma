@@ -26,8 +26,10 @@ enum Frequency {
 
 enum TransactionSource {
   PAYSTACK
+  MONNIFY
   WALK_IN
 }
+
 
 enum TransactionStatus {
   PENDING

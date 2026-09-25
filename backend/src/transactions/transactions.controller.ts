@@ -46,6 +46,20 @@ export class TransactionsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('contribute/monnify')
+  initiateMonnifyContribution(
+    @CurrentUser() user: { id: string; fullName: string; email?: string | null; phone: string },
+    @Body() dto: InitiateContributionDto,
+  ) {
+    return this.transactionsService.initiateMonnifyContribution(
+      user.id,
+      user.fullName,
+      user.email ?? null,
+      dto,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('me')
   getMyTransactions(@CurrentUser() user: { id: string }) {
     return this.transactionsService.getMyTransactions(user.id);
@@ -70,4 +84,11 @@ export class TransactionsController {
   ) {
     return this.transactionsService.handlePaystackWebhook(req.rawBody, signature);
   }
+
+  @Post('monnify/webhook')
+  @HttpCode(HttpStatus.OK)
+  handleMonnifyWebhook(@Body() payload: any) {
+    return this.transactionsService.handleMonnifyWebhook(payload);
+  }
 }
+

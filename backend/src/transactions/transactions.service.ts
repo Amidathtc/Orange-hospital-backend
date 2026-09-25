@@ -8,6 +8,7 @@ import { TransactionSource, TransactionStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma.service';
 import { PaystackService } from './paystack.service';
+import { MonnifyService } from './monnify.service';
 import { LogWalkInDto } from './dto/log-walk-in.dto';
 import { InitiateContributionDto } from './dto/initiate-contribution.dto';
 
@@ -16,8 +17,10 @@ export class TransactionsService {
   constructor(
     private prisma: PrismaService,
     private paystack: PaystackService,
+    private monnify: MonnifyService,
     private config: ConfigService,
   ) {}
+
 
   // Receptionist front-desk flow: cash is already in hand, so this is
   // recorded as SUCCESS immediately and the balance updates right away.
@@ -103,6 +106,54 @@ export class TransactionsService {
     return { transactionId: transaction.id, authorizationUrl, reference };
   }
 
+  async initiateMonnifyContribution(
+    userId: string,
+    userFullName: string,
+    userEmail: string | null,
+    dto: InitiateContributionDto,
+  ) {
+    if (!userEmail) {
+      throw new BadRequestException(
+        'An email address is required for Monnify payments.',
+      );
+    }
+
+    const fund = await this.prisma.fund.findUnique({
+      where: { userId_type: { userId, type: dto.fundType } },
+    });
+
+    if (!fund) {
+      throw new NotFoundException('Fund not found for this member.');
+    }
+
+    const reference = `mon_${randomUUID()}`;
+
+    const transaction = await this.prisma.transaction.create({
+      data: {
+        fundId: fund.id,
+        amount: dto.amount,
+        source: TransactionSource.MONNIFY,
+        status: TransactionStatus.PENDING,
+        paystackRef: reference,
+      },
+    });
+
+    const { checkoutUrl, transactionReference } = await this.monnify.initializeTransaction(
+      userFullName,
+      userEmail,
+      dto.amount,
+      reference,
+      `${this.config.get<string>('FRONTEND_URL')}/member?payment=complete`,
+    );
+
+    return {
+      transactionId: transaction.id,
+      authorizationUrl: checkoutUrl,
+      reference,
+      transactionReference,
+    };
+  }
+
   // Step 2: Paystack calls this after payment. This is the ONLY place
   // a Paystack-sourced balance actually changes — never trust the frontend
   // telling us a payment succeeded, only the signed webhook.
@@ -151,6 +202,56 @@ export class TransactionsService {
 
     return { received: true };
   }
+
+  async handleMonnifyWebhook(payload: any) {
+    if (payload.eventType !== 'SUCCESSFUL_TRANSACTION') {
+      return { received: true };
+    }
+
+    const eventData = payload.eventData;
+    if (!eventData) return { received: true };
+
+    const { paymentReference, amountPaid, paidOn, transactionReference, transactionHash } = eventData;
+
+    const isValid = this.monnify.verifyWebhookHash(
+      paymentReference,
+      amountPaid,
+      paidOn,
+      transactionReference,
+      transactionHash,
+    );
+
+    if (!isValid) {
+      throw new BadRequestException('Invalid Monnify webhook signature hash.');
+    }
+
+    const transaction = await this.prisma.transaction.findUnique({
+      where: { paystackRef: paymentReference },
+    });
+
+    if (!transaction) {
+      return { received: true };
+    }
+
+    if (transaction.status === TransactionStatus.SUCCESS) {
+      return { received: true };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { id: transaction.id },
+        data: { status: TransactionStatus.SUCCESS },
+      });
+
+      await tx.fund.update({
+        where: { id: transaction.fundId },
+        data: { balance: { increment: transaction.amount } },
+      });
+    });
+
+    return { received: true };
+  }
+
 
   async getMyTransactions(userId: string) {
     return this.prisma.transaction.findMany({
