@@ -18,7 +18,7 @@ export class CreateStaffDto {
   @MinLength(6)
   password: string;
 
-  @IsEnum(Role, { message: 'role must be RECEPTIONIST or ADMIN' })
+  @IsEnum(Role, { message: 'role must be RECEPTIONIST, MARKETER, or ADMIN' })
   role: Role;
 }
 

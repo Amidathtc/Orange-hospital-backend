@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   MEMBER
   RECEPTIONIST
+  MARKETER
   ADMIN
 }
 
@@ -66,6 +67,10 @@ model User {
   // A non-null value here should block further logins/contributions —
   // there is no legitimate reason for activity on the account after this.
   deceasedAt    DateTime?
+  // Referral tracking — set when a marketer registers a member on their behalf.
+  // registeredAt may differ from createdAt for members created through self-signup.
+  referredBy    String?
+  registeredAt  DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -77,8 +82,11 @@ model User {
   claimsAgainst BeneficiaryClaim[]   @relation("ClaimsAgainstMember")
   reviewedClaims BeneficiaryClaim[]  @relation("AdminReviewedClaims")
   authTokens    AuthToken[]
+  referrer      User?                @relation("Referrals", fields: [referredBy], references: [id])
+  referrals     User[]               @relation("Referrals")
 
   @@index([role])
+  @@index([referredBy])
 }
 
 // Backs both email verification and password reset — same shape, different
