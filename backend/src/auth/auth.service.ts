@@ -82,7 +82,7 @@ export class AuthService {
     // Best-effort, and only if they gave an email — a member without one
     // simply has no verification step, not a broken signup.
     if (user.email) {
-      await this.sendVerificationEmail(user.id, user.email, user.fullName);
+      await this.sendVerificationEmail(user.id, user.email, user.fullName).catch(() => undefined);
     }
 
     return this.buildAuthResponse(user);
@@ -201,7 +201,7 @@ export class AuthService {
     // Always return the same response whether or not the email exists —
     // otherwise this endpoint becomes a way to check which emails are registered.
     if (user && user.email) {
-      await this.sendPasswordResetEmail(user.id, user.email, user.fullName);
+      await this.sendPasswordResetEmail(user.id, user.email, user.fullName).catch(() => undefined);
     }
 
 
