@@ -137,6 +137,16 @@ export class BeneficiaryClaimsService {
         );
       }
 
+      await tx.transaction.create({
+        data: {
+          fundId: generalFund.id,
+          amount: claim.amount,
+          source: 'BENEFICIARY_CLAIM',
+          status: 'SUCCESS',
+          loggedById: adminId,
+        },
+      });
+
       const updatedClaim = await tx.beneficiaryClaim.update({
         where: { id: claimId },
         data: {

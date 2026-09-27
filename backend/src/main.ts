@@ -5,9 +5,15 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
-  // Only the real frontend can call this API — not "any origin", now that
-  // this is heading toward a real deployment with real money moving through it.
-  app.enableCors({ origin: process.env.FRONTEND_URL });
+  // Support multiple allowed frontend origins (e.g. localhost, staging, production)
+  const configuredOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map((url) => url.trim())
+    : true;
+
+  app.enableCors({
+    origin: configuredOrigins,
+    credentials: true,
+  });
 
   // Strips unknown fields and rejects invalid ones on every DTO, automatically.
   app.useGlobalPipes(

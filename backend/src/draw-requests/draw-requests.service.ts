@@ -122,6 +122,16 @@ export class DrawRequestsService {
         );
       }
 
+      await tx.transaction.create({
+        data: {
+          fundId: fund.id,
+          amount: request.amount,
+          source: 'DRAW',
+          status: 'SUCCESS',
+          loggedById: adminId,
+        },
+      });
+
       return tx.drawRequest.update({
         where: { id: requestId },
         data: {

@@ -1,8 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
+import { PrismaService } from './prisma.service';
 
 @Controller()
 export class AppController {
+  constructor(private prisma: PrismaService) {}
+
   @SkipThrottle()
   @Get()
   getRoot() {
@@ -14,11 +17,20 @@ export class AppController {
 
   @SkipThrottle()
   @Get('health')
-  getHealth() {
+  async getHealth() {
+    let dbStatus = 'ok';
+    try {
+      await this.prisma.$queryRaw`SELECT 1`;
+    } catch (e: any) {
+      dbStatus = 'disconnected';
+    }
+
     return {
-      status: 'ok',
+      status: dbStatus === 'ok' ? 'ok' : 'degraded',
+      database: dbStatus,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     };
   }
 }
+
